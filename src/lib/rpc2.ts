@@ -372,8 +372,8 @@ export class RPC2Client {
       }
     };
 
-    this.ws.onerror = (error) => {
-      console.error("WebSocket 错误:", error);
+    this.ws.onerror = () => {
+      console.warn("WebSocket 连接错误，RPC2 将使用 HTTP 回退。");
       this.eventListeners.onError?.(new Error("WebSocket 连接错误"));
     };
   }
