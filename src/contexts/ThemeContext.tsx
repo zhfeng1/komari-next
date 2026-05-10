@@ -33,7 +33,9 @@ export interface ThemeConfig {
   backgroundBlurIntensity: number;
   cardBlurEnabled: boolean;
   cardBlurType: CardBlurType;
+  // Persisted key kept for compatibility; this now drives card transparency.
   cardBlurIntensity: number;
+  cardExtraBlurIntensity: number;
 }
 
 export type StatusCardsVisibility = {
@@ -67,7 +69,9 @@ interface ThemeContextType {
   setBackgroundBlurIntensity: (intensity: number) => void;
   setCardBlurEnabled: (enabled: boolean) => void;
   setCardBlurType: (type: CardBlurType) => void;
+  setCardTransparentIntensity: (intensity: number) => void;
   setCardBlurIntensity: (intensity: number) => void;
+  setCardExtraBlurIntensity: (intensity: number) => void;
   setStatusCardVisibility: (key: keyof StatusCardsVisibility, checked: boolean) => void;
   setNodeViewMode: (value: NodeViewMode) => void;
 }
@@ -125,6 +129,7 @@ const DEFAULT_THEME_CONFIG: ThemeConfig = {
   cardBlurEnabled: false,
   cardBlurType: "glass",
   cardBlurIntensity: 35,
+  cardExtraBlurIntensity: 35,
 };
 
 export const DEFAULT_STATUS_CARDS_VISIBILITY: StatusCardsVisibility = {
@@ -300,7 +305,8 @@ function getBackgroundBlurPresentation(
 
 function getCardBlurPresentation(
   type: CardBlurType,
-  intensity: number,
+  transparentIntensity: number,
+  extraBlurIntensity: number,
   enabled: boolean
 ) {
   if (!enabled) {
@@ -328,46 +334,48 @@ function getCardBlurPresentation(
     };
   }
 
-  const normalized = clampBackgroundBlurIntensity(intensity);
-  const blur = (multiplier: number) => Number((normalized * multiplier).toFixed(1));
-  const amount = normalized / 100;
+  const transparentNormalized = clampBackgroundBlurIntensity(transparentIntensity);
+  const extraBlurNormalized = clampBackgroundBlurIntensity(extraBlurIntensity);
+  const blur = (multiplier: number) => Number((extraBlurNormalized * multiplier).toFixed(1));
+  const transparentAmount = transparentNormalized / 100;
+  const extraBlurAmount = extraBlurNormalized / 100;
 
   const filterByType: Record<CardBlurType, string> = {
-    soft: `blur(${blur(0.08)}px) saturate(${(1 + amount * 0.06).toFixed(2)})`,
-    glass: `blur(${blur(0.42)}px) saturate(${(1 + amount * 1.15).toFixed(2)}) brightness(${(1 + amount * 0.12).toFixed(2)}) contrast(${(1 - amount * 0.1).toFixed(2)})`,
+    soft: `blur(${blur(0.08)}px) saturate(${(1 + extraBlurAmount * 0.06).toFixed(2)})`,
+    glass: `blur(${blur(0.42)}px) saturate(${(1 + extraBlurAmount * 1.15).toFixed(2)}) brightness(${(1 + extraBlurAmount * 0.12).toFixed(2)}) contrast(${(1 - extraBlurAmount * 0.1).toFixed(2)})`,
   };
 
   const backgroundAlphaByType: Record<CardBlurType, number> = {
-    soft: 100 - amount * 100,
-    glass: 72 - amount * 36,
+    soft: 100 - transparentAmount * 100,
+    glass: 72 - transparentAmount * 36,
   };
 
   const borderAlphaByType: Record<CardBlurType, number> = {
-    soft: 90 - amount * 60,
-    glass: 80 + amount * 20,
+    soft: 90 - transparentAmount * 60,
+    glass: 80 + transparentAmount * 20,
   };
 
   return {
-    filter: normalized > 0 ? filterByType[type] : "none",
+    filter: extraBlurNormalized > 0 ? filterByType[type] : "none",
     backgroundAlpha: `${Math.round(backgroundAlphaByType[type])}%`,
     borderAlpha: `${Math.round(borderAlphaByType[type])}%`,
-    glassStartAlpha: cssPercent(72 - amount * 36),
-    glassMiddleAlpha: cssPercent(46 - amount * 26),
-    glassEndAlpha: cssPercent(34 - amount * 22),
-    glassHighlightMix: cssPercent(8 + amount * 22),
-    glassDarkHighlightMix: cssPercent(5 + amount * 14),
-    glassBorderWhiteMix: cssPercent(28 + amount * 42),
-    glassDarkBorderWhiteMix: cssPercent(14 + amount * 24),
-    glassOutlineAlpha: cssAlpha(0.14 + amount * 0.28),
-    glassDarkOutlineAlpha: cssAlpha(0.08 + amount * 0.18),
-    glassShadowAlpha: cssAlpha(0.08 + amount * 0.2),
-    glassSecondaryShadowAlpha: cssAlpha(0.05 + amount * 0.12),
-    glassDarkShadowAlpha: cssAlpha(0.24 + amount * 0.28),
-    glassDarkSecondaryShadowAlpha: cssAlpha(0.16 + amount * 0.18),
-    glassInnerHighlightAlpha: cssAlpha(0.18 + amount * 0.42),
-    glassDarkInnerHighlightAlpha: cssAlpha(0.1 + amount * 0.2),
-    glassInnerLowlightAlpha: cssAlpha(0.06 + amount * 0.12),
-    glassDarkInnerLowlightAlpha: cssAlpha(0.04 + amount * 0.08),
+    glassStartAlpha: cssPercent(72 - transparentAmount * 36),
+    glassMiddleAlpha: cssPercent(46 - transparentAmount * 26),
+    glassEndAlpha: cssPercent(34 - transparentAmount * 22),
+    glassHighlightMix: cssPercent(8 + transparentAmount * 22),
+    glassDarkHighlightMix: cssPercent(5 + transparentAmount * 14),
+    glassBorderWhiteMix: cssPercent(28 + transparentAmount * 42),
+    glassDarkBorderWhiteMix: cssPercent(14 + transparentAmount * 24),
+    glassOutlineAlpha: cssAlpha(0.14 + transparentAmount * 0.28),
+    glassDarkOutlineAlpha: cssAlpha(0.08 + transparentAmount * 0.18),
+    glassShadowAlpha: cssAlpha(0.08 + transparentAmount * 0.2),
+    glassSecondaryShadowAlpha: cssAlpha(0.05 + transparentAmount * 0.12),
+    glassDarkShadowAlpha: cssAlpha(0.24 + transparentAmount * 0.28),
+    glassDarkSecondaryShadowAlpha: cssAlpha(0.16 + transparentAmount * 0.18),
+    glassInnerHighlightAlpha: cssAlpha(0.18 + transparentAmount * 0.42),
+    glassDarkInnerHighlightAlpha: cssAlpha(0.1 + transparentAmount * 0.2),
+    glassInnerLowlightAlpha: cssAlpha(0.06 + transparentAmount * 0.12),
+    glassDarkInnerLowlightAlpha: cssAlpha(0.04 + transparentAmount * 0.08),
   };
 }
 
@@ -431,6 +439,7 @@ function normalizeThemeConfigOverrides(input: unknown): Partial<ThemeConfig> {
   const cardBlurEnabled = pickBoolean(input.cardBlurEnabled);
   const cardBlurType = pickBlurType(input.cardBlurType);
   const cardBlurIntensity = pickNumber(input.cardBlurIntensity);
+  const cardExtraBlurIntensity = pickNumber(input.cardExtraBlurIntensity);
 
   if (colorTheme) result.colorTheme = colorTheme;
   if (cardLayout) result.cardLayout = cardLayout;
@@ -447,6 +456,9 @@ function normalizeThemeConfigOverrides(input: unknown): Partial<ThemeConfig> {
   if (cardBlurType) result.cardBlurType = cardBlurType;
   if (cardBlurIntensity !== undefined) {
     result.cardBlurIntensity = clampBackgroundBlurIntensity(cardBlurIntensity);
+  }
+  if (cardExtraBlurIntensity !== undefined) {
+    result.cardExtraBlurIntensity = clampBackgroundBlurIntensity(cardExtraBlurIntensity);
   }
 
   return result;
@@ -572,6 +584,7 @@ function mergeManagedSettings(
       "cardBlurEnabled",
       "cardBlurType",
       "cardBlurIntensity",
+      "cardExtraBlurIntensity",
     ] as const
   ).forEach((key) => {
     if (patch[key] !== undefined) {
@@ -918,6 +931,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const presentation = getCardBlurPresentation(
       themeConfig.cardBlurType,
       themeConfig.cardBlurIntensity,
+      themeConfig.cardExtraBlurIntensity,
       themeConfig.cardBlurEnabled
     );
 
@@ -932,6 +946,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [
     themeConfig.cardBlurEnabled,
     themeConfig.cardBlurIntensity,
+    themeConfig.cardExtraBlurIntensity,
     themeConfig.cardBlurType,
   ]);
 
@@ -947,8 +962,11 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setLocalThemePatch({ backgroundBlurIntensity: clampBackgroundBlurIntensity(intensity) });
   const setCardBlurEnabled = (enabled: boolean) => setLocalThemePatch({ cardBlurEnabled: enabled });
   const setCardBlurType = (type: CardBlurType) => setLocalThemePatch({ cardBlurType: type });
-  const setCardBlurIntensity = (intensity: number) =>
+  const setCardTransparentIntensity = (intensity: number) =>
     setLocalThemePatch({ cardBlurIntensity: clampBackgroundBlurIntensity(intensity) });
+  const setCardBlurIntensity = setCardTransparentIntensity;
+  const setCardExtraBlurIntensity = (intensity: number) =>
+    setLocalThemePatch({ cardExtraBlurIntensity: clampBackgroundBlurIntensity(intensity) });
   const setStatusCardVisibility = (key: keyof StatusCardsVisibility, checked: boolean) =>
     setLocalStatusCardsPatch({ [key]: checked });
 
@@ -970,7 +988,9 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setBackgroundBlurIntensity,
       setCardBlurEnabled,
       setCardBlurType,
+      setCardTransparentIntensity,
       setCardBlurIntensity,
+      setCardExtraBlurIntensity,
       setStatusCardVisibility,
       setNodeViewMode: setNodeViewModeValue,
     }),

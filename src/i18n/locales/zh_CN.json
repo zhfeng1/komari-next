@@ -825,7 +825,8 @@
     "backgroundImagePlaceholder": "输入图片 URL",
     "cardBackground": "卡片背景",
     "cardBlur": "卡片模糊",
-    "cardBlurIntensity": "强度",
+    "cardBlurIntensity": "透明强度",
+    "cardExtraBlurIntensity": "额外模糊强度",
     "cardBlurType": "模糊类型",
     "cardDesign": "卡片设计",
     "cardDesigns": {

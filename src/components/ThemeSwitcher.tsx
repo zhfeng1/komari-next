@@ -42,7 +42,8 @@ const ThemeSwitcher = () => {
     setBackgroundBlurIntensity,
     setCardBlurEnabled,
     setCardBlurType,
-    setCardBlurIntensity,
+    setCardTransparentIntensity,
+    setCardExtraBlurIntensity,
   } = useTheme();
   const { t } = useTranslation();
   const [bgUrlInput, setBgUrlInput] = useState(themeConfig.backgroundImageUrl || '');
@@ -302,7 +303,7 @@ const ThemeSwitcher = () => {
                   <div>
                     <div className="mb-1.5 flex items-center justify-between gap-2">
                       <span className="text-[11px] font-medium text-muted-foreground">
-                        {t('themeCustomizer.cardBlurIntensity', { defaultValue: 'Intensity' })}
+                        {t('themeCustomizer.cardBlurIntensity', { defaultValue: 'Transparent Intensity' })}
                       </span>
                       <span className="text-[11px] tabular-nums text-muted-foreground">
                         {themeConfig.cardBlurIntensity}%
@@ -314,7 +315,26 @@ const ThemeSwitcher = () => {
                       max={100}
                       step={5}
                       value={themeConfig.cardBlurIntensity}
-                      onChange={(event) => setCardBlurIntensity(Number(event.target.value))}
+                      onChange={(event) => setCardTransparentIntensity(Number(event.target.value))}
+                      className="h-2 w-full cursor-pointer accent-primary"
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        {t('themeCustomizer.cardExtraBlurIntensity', { defaultValue: 'Extra Blur Intensity' })}
+                      </span>
+                      <span className="text-[11px] tabular-nums text-muted-foreground">
+                        {themeConfig.cardExtraBlurIntensity}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={themeConfig.cardExtraBlurIntensity}
+                      onChange={(event) => setCardExtraBlurIntensity(Number(event.target.value))}
                       className="h-2 w-full cursor-pointer accent-primary"
                     />
                   </div>
