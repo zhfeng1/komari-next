@@ -6,8 +6,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 import { resources } from "../i18n/config";
+import { useTheme } from "@/contexts/ThemeContext";
 interface LanguageSwitch {
   icon?: ReactNode;
 }
@@ -33,7 +33,7 @@ const LanguageSwitch = ({
     </Button>
   ),
 }: LanguageSwitch = {}) => {
-  const { i18n } = useTranslation();
+  const { language, setLanguage } = useTheme();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{icon}</DropdownMenuTrigger>
@@ -41,8 +41,9 @@ const LanguageSwitch = ({
         {languages.map((lang) => (
           <DropdownMenuItem
             key={lang.code}
+            className={language === lang.code ? "bg-accent" : ""}
             onSelect={() => {
-              void i18n.changeLanguage(lang.code);
+              setLanguage(lang.code);
             }}
           >
             {lang.name} ({lang.code.slice(0, 2)})
