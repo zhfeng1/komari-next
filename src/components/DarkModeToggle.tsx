@@ -1,7 +1,6 @@
 "use client";
 
 import { Moon, Sun, Monitor } from "lucide-react";
-import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -11,9 +10,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function DarkModeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { appearance, setAppearance } = useTheme();
   const { t } = useTranslation();
   const [mounted, setMounted] = useState(false);
 
@@ -31,7 +31,7 @@ export default function DarkModeToggle() {
   }
 
   const getIcon = () => {
-    switch (theme) {
+    switch (appearance) {
       case "light":
         return <Sun className="h-4 w-4" />;
       case "dark":
@@ -55,22 +55,22 @@ export default function DarkModeToggle() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem
-          onClick={() => setTheme("light")}
-          className={theme === "light" ? "bg-accent" : ""}
+          onClick={() => setAppearance("light")}
+          className={appearance === "light" ? "bg-accent" : ""}
         >
           <Sun className="mr-2 h-4 w-4" />
           <span>{t("theme.light", { defaultValue: "Light" })}</span>
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => setTheme("dark")}
-          className={theme === "dark" ? "bg-accent" : ""}
+          onClick={() => setAppearance("dark")}
+          className={appearance === "dark" ? "bg-accent" : ""}
         >
           <Moon className="mr-2 h-4 w-4" />
           <span>{t("theme.dark", { defaultValue: "Dark" })}</span>
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => setTheme("system")}
-          className={theme === "system" ? "bg-accent" : ""}
+          onClick={() => setAppearance("system")}
+          className={appearance === "system" ? "bg-accent" : ""}
         >
           <Monitor className="mr-2 h-4 w-4" />
           <span>{t("theme.system", { defaultValue: "System" })}</span>

@@ -10,7 +10,9 @@ import React, {
   useState,
   ReactNode,
 } from "react";
+import { useTheme as useNextTheme } from "next-themes";
 import { updateSettings } from "@/lib/api";
+import i18n, { detectClientLanguage, normalizeLanguage } from "@/i18n/config";
 
 export type ColorTheme = "default" | "ocean" | "sunset" | "forest" | "midnight" | "rose";
 export type CardLayout = "classic" | "modern" | "minimal" | "detailed";
@@ -20,6 +22,7 @@ export type GraphDesign = "circle" | "progress" | "bar" | "minimal";
 export type NodeViewMode = "grid" | "table";
 export type BackgroundBlurType = "soft" | "glass";
 export type CardBlurType = BackgroundBlurType;
+export type Appearance = "light" | "dark" | "system";
 
 export interface ThemeConfig {
   colorTheme: ColorTheme;
@@ -50,6 +53,8 @@ export type StatusCardsVisibility = {
 export interface ManagedThemeSettings extends Partial<ThemeConfig> {
   statusCardsVisibility?: Partial<StatusCardsVisibility>;
   nodeViewMode?: NodeViewMode;
+  appearance?: Appearance;
+  language?: string;
 }
 
 interface ThemeContextType {
@@ -58,6 +63,8 @@ interface ThemeContextType {
   isThemeSettingsAdmin: boolean;
   statusCardsVisibility: StatusCardsVisibility;
   nodeViewMode: NodeViewMode;
+  appearance: Appearance;
+  language: string;
   setColorTheme: (theme: ColorTheme) => void;
   setCardLayout: (layout: CardLayout) => void;
   setCardDesign: (design: CardDesign) => void;
@@ -74,6 +81,8 @@ interface ThemeContextType {
   setCardExtraBlurIntensity: (intensity: number) => void;
   setStatusCardVisibility: (key: keyof StatusCardsVisibility, checked: boolean) => void;
   setNodeViewMode: (value: NodeViewMode) => void;
+  setAppearance: (value: Appearance) => void;
+  setLanguage: (value: string) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -84,6 +93,10 @@ const STATUS_CARDS_STORAGE_KEY = "statusCardsVisibility";
 const STATUS_CARDS_CHANGE_EVENT = "statusCardsVisibilityChange";
 const NODE_VIEW_STORAGE_KEY = "nodeViewMode";
 const NODE_VIEW_CHANGE_EVENT = "nodeViewModeChange";
+const APPEARANCE_STORAGE_KEY = "komari-appearance";
+const NEXT_THEMES_STORAGE_KEY = "theme";
+const LANGUAGE_STORAGE_KEY = "komari-language";
+const I18NEXT_STORAGE_KEY = "i18nextLng";
 const LOCAL_OVERRIDE_BASE_SIGNATURE_KEY = "komari-theme-local-override-base";
 
 const COLOR_THEMES: ColorTheme[] = ["default", "ocean", "sunset", "forest", "midnight", "rose"];
@@ -92,6 +105,7 @@ const CARD_DESIGNS: CardDesign[] = ["default", "quality-bars"];
 const STATUS_DESIGNS: StatusDesign[] = ["default", "speed"];
 const GRAPH_DESIGNS: GraphDesign[] = ["circle", "progress", "bar", "minimal"];
 const NODE_VIEW_MODES: NodeViewMode[] = ["grid", "table"];
+const APPEARANCES: Appearance[] = ["light", "dark", "system"];
 const BACKGROUND_BLUR_TYPES: BackgroundBlurType[] = ["soft", "glass"];
 const CARD_BLUR_STYLE_PROPERTIES = {
   filter: "--komari-card-backdrop-filter",
@@ -142,6 +156,7 @@ export const DEFAULT_STATUS_CARDS_VISIBILITY: StatusCardsVisibility = {
 };
 
 export const DEFAULT_NODE_VIEW_MODE: NodeViewMode = "grid";
+export const DEFAULT_APPEARANCE: Appearance = "system";
 
 type AdminState = "loading" | "yes" | "no";
 
@@ -209,6 +224,14 @@ function writeStringStorage(key: string, value: string) {
   window.localStorage.setItem(key, value);
 }
 
+function clearI18nLanguageCache() {
+  removeStorage(I18NEXT_STORAGE_KEY);
+
+  if (typeof document !== "undefined") {
+    document.cookie = "i18next=; Max-Age=0; path=/";
+  }
+}
+
 function writeThemeOverrides(value: Partial<ThemeConfig>) {
   writeJsonStorage(THEME_OVERRIDES_STORAGE_KEY, value);
 
@@ -230,6 +253,18 @@ function parseThemeSettings(input: unknown): Record<string, unknown> {
 
 function pickEnum<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
   return typeof value === "string" && allowed.includes(value as T) ? (value as T) : undefined;
+}
+
+function pickAppearance(value: unknown): Appearance | undefined {
+  return pickEnum(value, APPEARANCES);
+}
+
+function pickManagedLanguage(value: unknown): string | undefined {
+  if (typeof value !== "string" || value === "auto") {
+    return undefined;
+  }
+
+  return normalizeLanguage(value);
 }
 
 function pickString(value: unknown): string | undefined {
@@ -484,6 +519,8 @@ function normalizeManagedThemeSettings(input: unknown): ManagedThemeSettings {
   const source = parseThemeSettings(input);
   const result: ManagedThemeSettings = normalizeThemeConfigOverrides(source);
   const nodeViewMode = pickEnum(readDottedValue(source, "nodeViewMode"), NODE_VIEW_MODES);
+  const appearance = pickAppearance(readDottedValue(source, "appearance"));
+  const language = pickManagedLanguage(readDottedValue(source, "language"));
   const statusCardsVisibility: Partial<StatusCardsVisibility> = {};
 
   (Object.keys(DEFAULT_STATUS_CARDS_VISIBILITY) as Array<keyof StatusCardsVisibility>).forEach((key) => {
@@ -499,6 +536,14 @@ function normalizeManagedThemeSettings(input: unknown): ManagedThemeSettings {
 
   if (nodeViewMode) {
     result.nodeViewMode = nodeViewMode;
+  }
+
+  if (appearance) {
+    result.appearance = appearance;
+  }
+
+  if (language) {
+    result.language = language;
   }
 
   return result;
@@ -534,12 +579,22 @@ function readInitialNodeViewOverride(): NodeViewMode | undefined {
   return pickEnum(readJsonStorage(NODE_VIEW_STORAGE_KEY), NODE_VIEW_MODES);
 }
 
+function readInitialAppearanceOverride(): Appearance | undefined {
+  return pickAppearance(readStringStorage(APPEARANCE_STORAGE_KEY));
+}
+
+function readInitialLanguageOverride(): string | undefined {
+  return normalizeLanguage(readStringStorage(LANGUAGE_STORAGE_KEY));
+}
+
 function hasLocalOverrides() {
   return (
     Object.keys(normalizeThemeConfigOverrides(readJsonStorage(THEME_OVERRIDES_STORAGE_KEY))).length > 0 ||
     Object.keys(extractLegacyThemeOverrides(readJsonStorage(LEGACY_THEME_STORAGE_KEY))).length > 0 ||
     Object.keys(normalizeStatusCardsVisibilityOverrides(readJsonStorage(STATUS_CARDS_STORAGE_KEY))).length > 0 ||
-    readInitialNodeViewOverride() !== undefined
+    readInitialNodeViewOverride() !== undefined ||
+    readInitialAppearanceOverride() !== undefined ||
+    readInitialLanguageOverride() !== undefined
   );
 }
 
@@ -585,6 +640,8 @@ function mergeManagedSettings(
       "cardBlurType",
       "cardBlurIntensity",
       "cardExtraBlurIntensity",
+      "appearance",
+      "language",
     ] as const
   ).forEach((key) => {
     if (patch[key] !== undefined) {
@@ -619,11 +676,16 @@ export function useTheme() {
 }
 
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { setTheme: setNextTheme } = useNextTheme();
   const [localThemeOverrides, setLocalThemeOverrides] = useState<Partial<ThemeConfig>>(readInitialThemeOverrides);
   const [localStatusCardsOverrides, setLocalStatusCardsOverrides] =
     useState<Partial<StatusCardsVisibility>>(readInitialStatusCardsOverrides);
   const [localNodeViewOverride, setLocalNodeViewOverride] =
     useState<NodeViewMode | undefined>(readInitialNodeViewOverride);
+  const [localAppearanceOverride, setLocalAppearanceOverride] =
+    useState<Appearance | undefined>(readInitialAppearanceOverride);
+  const [localLanguageOverride, setLocalLanguageOverride] =
+    useState<string | undefined>(readInitialLanguageOverride);
   const [managedThemeSettings, setManagedThemeSettings] = useState<ManagedThemeSettings>({});
   const [managedSettingsSignature, setManagedSettingsSignature] = useState(
     getManagedSettingsSignature({})
@@ -657,14 +719,34 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     managedThemeSettings.nodeViewMode ||
     DEFAULT_NODE_VIEW_MODE;
 
+  const appearance =
+    localAppearanceOverride ||
+    managedThemeSettings.appearance ||
+    DEFAULT_APPEARANCE;
+
+  const language = useMemo(
+    () =>
+      localLanguageOverride ||
+      managedThemeSettings.language ||
+      normalizeLanguage(detectClientLanguage()) ||
+      "en",
+    [localLanguageOverride, managedThemeSettings.language]
+  );
+
   const clearLocalOverrides = useCallback(() => {
     setLocalThemeOverrides({});
     setLocalStatusCardsOverrides({});
     setLocalNodeViewOverride(undefined);
+    setLocalAppearanceOverride(undefined);
+    setLocalLanguageOverride(undefined);
 
     writeThemeOverrides({});
     writeJsonStorage(STATUS_CARDS_STORAGE_KEY, {});
     writeJsonStorage(NODE_VIEW_STORAGE_KEY, undefined);
+    removeStorage(APPEARANCE_STORAGE_KEY);
+    removeStorage(NEXT_THEMES_STORAGE_KEY);
+    removeStorage(LANGUAGE_STORAGE_KEY);
+    clearI18nLanguageCache();
     removeStorage(LOCAL_OVERRIDE_BASE_SIGNATURE_KEY);
   }, []);
 
@@ -785,6 +867,47 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     [applyAdminOrLocalPatch, managedSettingsSignature]
   );
 
+  const setAppearanceValue = useCallback(
+    (value: Appearance) => {
+      const isAdminPatch = applyAdminOrLocalPatch({ appearance: value });
+      const nextLocalValue = isAdminPatch ? undefined : value;
+
+      setLocalAppearanceOverride(nextLocalValue);
+      if (nextLocalValue) {
+        writeStringStorage(APPEARANCE_STORAGE_KEY, nextLocalValue);
+      } else {
+        removeStorage(APPEARANCE_STORAGE_KEY);
+      }
+      if (!isAdminPatch) {
+        writeStringStorage(LOCAL_OVERRIDE_BASE_SIGNATURE_KEY, managedSettingsSignature);
+      }
+    },
+    [applyAdminOrLocalPatch, managedSettingsSignature]
+  );
+
+  const setLanguageValue = useCallback(
+    (value: string) => {
+      const nextLanguage = normalizeLanguage(value);
+      if (!nextLanguage) {
+        return;
+      }
+
+      const isAdminPatch = applyAdminOrLocalPatch({ language: nextLanguage });
+      const nextLocalValue = isAdminPatch ? undefined : nextLanguage;
+
+      setLocalLanguageOverride(nextLocalValue);
+      if (nextLocalValue) {
+        writeStringStorage(LANGUAGE_STORAGE_KEY, nextLocalValue);
+      } else {
+        removeStorage(LANGUAGE_STORAGE_KEY);
+      }
+      if (!isAdminPatch) {
+        writeStringStorage(LOCAL_OVERRIDE_BASE_SIGNATURE_KEY, managedSettingsSignature);
+      }
+    },
+    [applyAdminOrLocalPatch, managedSettingsSignature]
+  );
+
   useEffect(() => {
     let mounted = true;
 
@@ -862,7 +985,32 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setLocalNodeViewOverride(undefined);
       writeJsonStorage(NODE_VIEW_STORAGE_KEY, undefined);
     }
+
+    if (pendingPatch.appearance !== undefined) {
+      setLocalAppearanceOverride(undefined);
+      removeStorage(APPEARANCE_STORAGE_KEY);
+    }
+
+    if (pendingPatch.language !== undefined) {
+      setLocalLanguageOverride(undefined);
+      removeStorage(LANGUAGE_STORAGE_KEY);
+    }
   }, [adminState, persistManagedSettings]);
+
+  useEffect(() => {
+    setNextTheme(appearance);
+  }, [appearance, setNextTheme]);
+
+  useEffect(() => {
+    const nextLanguage = normalizeLanguage(language) || "en";
+    if (i18n.language !== nextLanguage) {
+      void i18n.changeLanguage(nextLanguage);
+    }
+
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = nextLanguage.replace("_", "-");
+    }
+  }, [language]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -950,25 +1098,67 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     themeConfig.cardBlurType,
   ]);
 
-  const setColorTheme = (theme: ColorTheme) => setLocalThemePatch({ colorTheme: theme });
-  const setCardLayout = (layout: CardLayout) => setLocalThemePatch({ cardLayout: layout });
-  const setCardDesign = (design: CardDesign) => setLocalThemePatch({ cardDesign: design });
-  const setStatusDesign = (design: StatusDesign) => setLocalThemePatch({ statusDesign: design });
-  const setGraphDesign = (design: GraphDesign) => setLocalThemePatch({ graphDesign: design });
-  const setBackgroundImageUrl = (url: string) => setLocalThemePatch({ backgroundImageUrl: url });
-  const setBackgroundBlurEnabled = (enabled: boolean) => setLocalThemePatch({ backgroundBlurEnabled: enabled });
-  const setBackgroundBlurType = (type: BackgroundBlurType) => setLocalThemePatch({ backgroundBlurType: type });
-  const setBackgroundBlurIntensity = (intensity: number) =>
-    setLocalThemePatch({ backgroundBlurIntensity: clampBackgroundBlurIntensity(intensity) });
-  const setCardBlurEnabled = (enabled: boolean) => setLocalThemePatch({ cardBlurEnabled: enabled });
-  const setCardBlurType = (type: CardBlurType) => setLocalThemePatch({ cardBlurType: type });
-  const setCardTransparentIntensity = (intensity: number) =>
-    setLocalThemePatch({ cardBlurIntensity: clampBackgroundBlurIntensity(intensity) });
+  const setColorTheme = useCallback(
+    (theme: ColorTheme) => setLocalThemePatch({ colorTheme: theme }),
+    [setLocalThemePatch]
+  );
+  const setCardLayout = useCallback(
+    (layout: CardLayout) => setLocalThemePatch({ cardLayout: layout }),
+    [setLocalThemePatch]
+  );
+  const setCardDesign = useCallback(
+    (design: CardDesign) => setLocalThemePatch({ cardDesign: design }),
+    [setLocalThemePatch]
+  );
+  const setStatusDesign = useCallback(
+    (design: StatusDesign) => setLocalThemePatch({ statusDesign: design }),
+    [setLocalThemePatch]
+  );
+  const setGraphDesign = useCallback(
+    (design: GraphDesign) => setLocalThemePatch({ graphDesign: design }),
+    [setLocalThemePatch]
+  );
+  const setBackgroundImageUrl = useCallback(
+    (url: string) => setLocalThemePatch({ backgroundImageUrl: url }),
+    [setLocalThemePatch]
+  );
+  const setBackgroundBlurEnabled = useCallback(
+    (enabled: boolean) => setLocalThemePatch({ backgroundBlurEnabled: enabled }),
+    [setLocalThemePatch]
+  );
+  const setBackgroundBlurType = useCallback(
+    (type: BackgroundBlurType) => setLocalThemePatch({ backgroundBlurType: type }),
+    [setLocalThemePatch]
+  );
+  const setBackgroundBlurIntensity = useCallback(
+    (intensity: number) =>
+      setLocalThemePatch({ backgroundBlurIntensity: clampBackgroundBlurIntensity(intensity) }),
+    [setLocalThemePatch]
+  );
+  const setCardBlurEnabled = useCallback(
+    (enabled: boolean) => setLocalThemePatch({ cardBlurEnabled: enabled }),
+    [setLocalThemePatch]
+  );
+  const setCardBlurType = useCallback(
+    (type: CardBlurType) => setLocalThemePatch({ cardBlurType: type }),
+    [setLocalThemePatch]
+  );
+  const setCardTransparentIntensity = useCallback(
+    (intensity: number) =>
+      setLocalThemePatch({ cardBlurIntensity: clampBackgroundBlurIntensity(intensity) }),
+    [setLocalThemePatch]
+  );
   const setCardBlurIntensity = setCardTransparentIntensity;
-  const setCardExtraBlurIntensity = (intensity: number) =>
-    setLocalThemePatch({ cardExtraBlurIntensity: clampBackgroundBlurIntensity(intensity) });
-  const setStatusCardVisibility = (key: keyof StatusCardsVisibility, checked: boolean) =>
-    setLocalStatusCardsPatch({ [key]: checked });
+  const setCardExtraBlurIntensity = useCallback(
+    (intensity: number) =>
+      setLocalThemePatch({ cardExtraBlurIntensity: clampBackgroundBlurIntensity(intensity) }),
+    [setLocalThemePatch]
+  );
+  const setStatusCardVisibility = useCallback(
+    (key: keyof StatusCardsVisibility, checked: boolean) =>
+      setLocalStatusCardsPatch({ [key]: checked }),
+    [setLocalStatusCardsPatch]
+  );
 
   const value = useMemo<ThemeContextType>(
     () => ({
@@ -977,6 +1167,8 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       isThemeSettingsAdmin: adminState === "yes",
       statusCardsVisibility,
       nodeViewMode,
+      appearance,
+      language,
       setColorTheme,
       setCardLayout,
       setCardDesign,
@@ -993,12 +1185,33 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setCardExtraBlurIntensity,
       setStatusCardVisibility,
       setNodeViewMode: setNodeViewModeValue,
+      setAppearance: setAppearanceValue,
+      setLanguage: setLanguageValue,
     }),
     [
+      appearance,
       adminState,
+      language,
       managedThemeSettings,
       nodeViewMode,
+      setBackgroundBlurEnabled,
+      setBackgroundBlurIntensity,
+      setBackgroundBlurType,
+      setBackgroundImageUrl,
+      setAppearanceValue,
+      setCardBlurEnabled,
+      setCardBlurIntensity,
+      setCardBlurType,
+      setCardDesign,
+      setCardExtraBlurIntensity,
+      setCardLayout,
+      setCardTransparentIntensity,
+      setColorTheme,
+      setGraphDesign,
+      setLanguageValue,
       setNodeViewModeValue,
+      setStatusCardVisibility,
+      setStatusDesign,
       statusCardsVisibility,
       themeConfig,
     ]

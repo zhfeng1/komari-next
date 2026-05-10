@@ -47,7 +47,7 @@ const resources = {
 
 const supportedLanguages = Object.keys(resources);
 
-function normalizeLanguage(language: string | null | undefined): string | undefined {
+export function normalizeLanguage(language: string | null | undefined): string | undefined {
   if (!language) {
     return undefined;
   }
@@ -83,10 +83,13 @@ export function detectClientLanguage(): string {
   }
 
   const queryLanguage = new URLSearchParams(window.location.search).get("lng");
+  let managedOverrideLanguage: string | null = null;
   let localStorageLanguage: string | null = null;
   try {
+    managedOverrideLanguage = window.localStorage?.getItem("komari-language") || null;
     localStorageLanguage = window.localStorage?.getItem("i18nextLng") || null;
   } catch {
+    managedOverrideLanguage = null;
     localStorageLanguage = null;
   }
   const cookieLanguage = document.cookie
@@ -97,6 +100,7 @@ export function detectClientLanguage(): string {
 
   return (
     normalizeLanguage(queryLanguage) ||
+    normalizeLanguage(managedOverrideLanguage) ||
     normalizeLanguage(localStorageLanguage) ||
     normalizeLanguage(cookieLanguage) ||
     normalizeLanguage(navigatorLanguage) ||

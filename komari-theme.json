@@ -108,6 +108,29 @@
         "default": "grid"
       },
       {
+        "key": "appearance",
+        "type": "option",
+        "label": "Default appearance",
+        "options": [
+          "light",
+          "dark",
+          "system"
+        ],
+        "default": "system"
+      },
+      {
+        "key": "language",
+        "type": "option",
+        "label": "Default language",
+        "options": [
+          "auto",
+          "en",
+          "zh-CN",
+          "zh-TW"
+        ],
+        "default": "auto"
+      },
+      {
         "key": "backgroundImageUrl",
         "type": "text",
         "label": "Background image URL",
@@ -277,6 +300,30 @@
         },
         "default": "grid",
         "options": "grid,table"
+      },
+      {
+        "key": "appearance",
+        "type": "select",
+        "name": {
+          "zh-CN": "默认外观",
+          "en-US": "Default Appearance"
+        },
+        "default": "system",
+        "options": "light,dark,system"
+      },
+      {
+        "key": "language",
+        "type": "select",
+        "name": {
+          "zh-CN": "默认语言",
+          "en-US": "Default Language"
+        },
+        "help": {
+          "zh-CN": "选择 auto 时使用访客浏览器语言。",
+          "en-US": "Use auto to follow the visitor browser language."
+        },
+        "default": "auto",
+        "options": "auto,en,zh-CN,zh-TW"
       },
       {
         "key": "backgroundImageUrl",
@@ -475,6 +522,30 @@
         },
         "default": "grid",
         "options": "grid,table"
+      },
+      {
+        "key": "appearance",
+        "type": "select",
+        "name": {
+          "zh-CN": "默认外观",
+          "en-US": "Default Appearance"
+        },
+        "default": "system",
+        "options": "light,dark,system"
+      },
+      {
+        "key": "language",
+        "type": "select",
+        "name": {
+          "zh-CN": "默认语言",
+          "en-US": "Default Language"
+        },
+        "help": {
+          "zh-CN": "选择 auto 时使用访客浏览器语言。",
+          "en-US": "Use auto to follow the visitor browser language."
+        },
+        "default": "auto",
+        "options": "auto,en,zh-CN,zh-TW"
       },
       {
         "key": "backgroundImageUrl",
@@ -679,6 +750,30 @@
         "options": "grid,table"
       },
       {
+        "key": "appearance",
+        "type": "select",
+        "name": {
+          "zh-CN": "默认外观",
+          "en-US": "Default Appearance"
+        },
+        "default": "system",
+        "options": "light,dark,system"
+      },
+      {
+        "key": "language",
+        "type": "select",
+        "name": {
+          "zh-CN": "默认语言",
+          "en-US": "Default Language"
+        },
+        "help": {
+          "zh-CN": "选择 auto 时使用访客浏览器语言。",
+          "en-US": "Use auto to follow the visitor browser language."
+        },
+        "default": "auto",
+        "options": "auto,en,zh-CN,zh-TW"
+      },
+      {
         "key": "backgroundImageUrl",
         "type": "string",
         "name": {
@@ -879,6 +974,30 @@
         },
         "default": "grid",
         "options": "grid,table"
+      },
+      {
+        "key": "appearance",
+        "type": "select",
+        "name": {
+          "zh-CN": "默认外观",
+          "en-US": "Default Appearance"
+        },
+        "default": "system",
+        "options": "light,dark,system"
+      },
+      {
+        "key": "language",
+        "type": "select",
+        "name": {
+          "zh-CN": "默认语言",
+          "en-US": "Default Language"
+        },
+        "help": {
+          "zh-CN": "选择 auto 时使用访客浏览器语言。",
+          "en-US": "Use auto to follow the visitor browser language."
+        },
+        "default": "auto",
+        "options": "auto,en,zh-CN,zh-TW"
       },
       {
         "key": "backgroundImageUrl",
