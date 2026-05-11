@@ -93,6 +93,46 @@ npm run build
 * 使用任意静态 Web 服务器托管 `dist` 目录，**或**
 * 将 `dist` 内容作为 Komari 主题包的一部分使用。
 
+## Nginx 生产环境优化建议
+
+如果你使用 Nginx 或 OpenResty 作为反向代理，建议参考以下配置以优化性能，并解决 `HEAD` 请求返回 404 的问题。
+
+### 1. 处理 HEAD 请求（推荐）
+
+Next.js 的预取（Prefetching）机制和部分 CDN（如腾讯云 EdgeOne）可能会频繁发起 HTTP `HEAD` 请求。由于后端目前可能未对 `HEAD` 方法进行完整处理，建议在 Nginx 层将其转换为 `GET` 请求回源，以确保预取功能正常：
+
+```nginx
+location / {
+    # 将 HEAD 转换为 GET 发往后端，解决预取 404
+    if ($request_method = "HEAD") {
+        rewrite_by_lua_block { ngx.req.set_method(ngx.HTTP_GET) } # OpenResty 方案
+        # 或者使用：proxy_method GET;（需注意配置位置）
+    }
+
+    proxy_pass http://127.0.0.1:25774;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+### 2. 开启 Gzip 压缩
+
+可显著提升 Next.js 静态资源的加载速度：
+
+```nginx
+gzip on;
+gzip_proxied any;
+gzip_types text/plain text/css application/json application/javascript text/xml;
+gzip_vary on;
+```
+
+### 3. 安全防护建议
+
+建议配合 `fail2ban` 监控 Nginx 日志，防止僵尸网络对 `/api/rpc2` 或 `/instance/` 等路径进行大规模恶意扫描。
+
+这些配置可以改善页面跳转体验，提升套用 EdgeOne、Cloudflare 等 CDN 后的兼容性，并减少控制台和 Nginx 日志中的无效 404 报警。
+
 ## 主题开发
 
 本仓库设计为可作为自定义 Komari 主题使用。

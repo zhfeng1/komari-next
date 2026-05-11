@@ -95,6 +95,46 @@ After the build completes:
 - Serve the `dist` directory with any static web server, **or**
 - Use the contents of `dist` as part of a Komari theme bundle.
 
+## Nginx Production Optimization Tips
+
+If you use Nginx or OpenResty as a reverse proxy, consider the following configuration to improve performance and avoid 404 responses for `HEAD` requests.
+
+### 1. Handle HEAD requests (recommended)
+
+Next.js prefetching and some CDNs, such as Tencent Cloud EdgeOne, may send frequent HTTP `HEAD` requests. Because the backend may not fully handle `HEAD`, you can convert those requests to `GET` at the Nginx layer before proxying them upstream:
+
+```nginx
+location / {
+    # Convert HEAD to GET before proxying upstream to avoid prefetch 404s.
+    if ($request_method = "HEAD") {
+        rewrite_by_lua_block { ngx.req.set_method(ngx.HTTP_GET) } # OpenResty option
+        # Or use: proxy_method GET; (pay attention to directive placement)
+    }
+
+    proxy_pass http://127.0.0.1:25774;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+### 2. Enable Gzip compression
+
+Gzip can significantly improve the loading speed of Next.js static assets:
+
+```nginx
+gzip on;
+gzip_proxied any;
+gzip_types text/plain text/css application/json application/javascript text/xml;
+gzip_vary on;
+```
+
+### 3. Security hardening
+
+Consider using `fail2ban` to monitor Nginx logs and block large-scale malicious scans against paths such as `/api/rpc2` or `/instance/`.
+
+These settings can improve navigation smoothness, make deployments more compatible with CDNs such as EdgeOne and Cloudflare, and reduce invalid 404 noise in browser consoles and Nginx logs.
+
 ## Theme Development
 
 This repository is designed to be used as a custom Komari theme.
