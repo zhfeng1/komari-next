@@ -37,7 +37,10 @@ const SVG_HEIGHT = 560;
 const MAP_HORIZONTAL_PADDING = 28;
 const MAP_TOP_PADDING = 42;
 const MAP_BOTTOM_INSET = 42;
-const HOVER_EDGE_THRESHOLD = 380;
+const HOVER_CARD_GAP = 12;
+const HOVER_CARD_MAX_WIDTH = 320;
+const HOVER_CARD_FALLBACK_HEIGHT = 124;
+const HOVER_CARD_EDGE_PADDING = 8;
 
 function getStatusText(t: TranslateFn, status: "online" | "offline" | "partial") {
   switch (status) {
@@ -74,6 +77,7 @@ export function NodeMapView({
   const { t } = useTranslation();
   const summary = useMemo(() => buildMapViewSummary(nodes, liveData), [nodes, liveData]);
   const [hoveredRegion, setHoveredRegion] = useState<HoveredRegion | null>(null);
+  const mapSurfaceRef = useRef<HTMLDivElement | null>(null);
   const hoverCardRef = useRef<HTMLDivElement | null>(null);
   const hoverFrameRef = useRef<number | null>(null);
   const pendingHoverPositionRef = useRef<Omit<HoveredRegion, "regionKey"> | null>(null);
@@ -128,16 +132,26 @@ export function NodeMapView({
   }, [activeRegionsByMapName]);
 
   const getHoverPosition = useCallback((event: PointerEvent<SVGPathElement>) => {
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const x = event.clientX;
-    const y = event.clientY;
+    const surfaceRect = mapSurfaceRef.current?.getBoundingClientRect();
+    const boundsWidth = surfaceRect?.width ?? window.innerWidth;
+    const boundsHeight = surfaceRect?.height ?? window.innerHeight;
+    const x = surfaceRect ? event.clientX - surfaceRect.left : event.clientX;
+    const y = surfaceRect ? event.clientY - surfaceRect.top : event.clientY;
+    const hoverCard = hoverCardRef.current;
+    const cardWidth =
+      hoverCard?.offsetWidth ??
+      Math.min(HOVER_CARD_MAX_WIDTH, Math.max(0, boundsWidth - HOVER_CARD_EDGE_PADDING * 2));
+    const cardHeight = hoverCard?.offsetHeight ?? HOVER_CARD_FALLBACK_HEIGHT;
+    const spaceRight = boundsWidth - x - HOVER_CARD_GAP;
+    const spaceLeft = x - HOVER_CARD_GAP;
+    const spaceBelow = boundsHeight - y - HOVER_CARD_GAP;
+    const spaceAbove = y - HOVER_CARD_GAP;
 
     return {
       x,
       y,
-      horizontal: x > viewportWidth - HOVER_EDGE_THRESHOLD ? "left" : "right",
-      vertical: y > viewportHeight - HOVER_EDGE_THRESHOLD ? "above" : "below",
+      horizontal: spaceRight >= cardWidth || spaceRight >= spaceLeft ? "right" : "left",
+      vertical: spaceBelow >= cardHeight || spaceBelow >= spaceAbove ? "below" : "above",
     } satisfies Omit<HoveredRegion, "regionKey">;
   }, []);
 
@@ -290,7 +304,7 @@ export function NodeMapView({
 
       <CardContent className={mapOnly ? "p-0" : "p-5 lg:p-6"}>
         <div className={mapOnly ? "node-map-view__layout node-map-view__layout--map-only" : "node-map-view__layout"}>
-          <div className="node-map-view__surface">
+          <div ref={mapSurfaceRef} className="node-map-view__surface">
             <svg
               viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
               className="node-map-view__svg"

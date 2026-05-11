@@ -336,13 +336,13 @@
 }
 
 .node-map-view__hover-card {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   z-index: 70;
   display: flex;
-  width: min(320px, calc(100vw - 1rem));
-  max-height: min(430px, calc(100vh - 1rem));
+  width: min(320px, calc(100% - 1rem));
+  max-height: min(430px, calc(100% - 1rem));
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(226, 232, 240, 0.92);
@@ -351,21 +351,21 @@
   color: rgb(15, 23, 42);
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.14);
   pointer-events: none;
-  transform: translate3d(var(--node-map-hover-x, 0), var(--node-map-hover-y, 0), 0) translate(12px, 12px);
+  transform: translate3d(var(--node-map-hover-x, 0px), var(--node-map-hover-y, 0px), 0) translate(12px, 12px);
   will-change: transform;
   contain: layout style paint;
 }
 
 .node-map-view__hover-card[data-horizontal="left"] {
-  transform: translate3d(var(--node-map-hover-x, 0), var(--node-map-hover-y, 0), 0) translate(calc(-100% - 12px), 12px);
+  transform: translate3d(var(--node-map-hover-x, 0px), var(--node-map-hover-y, 0px), 0) translate(calc(-100% - 12px), 12px);
 }
 
 .node-map-view__hover-card[data-vertical="above"] {
-  transform: translate3d(var(--node-map-hover-x, 0), var(--node-map-hover-y, 0), 0) translate(12px, calc(-100% - 12px));
+  transform: translate3d(var(--node-map-hover-x, 0px), var(--node-map-hover-y, 0px), 0) translate(12px, calc(-100% - 12px));
 }
 
 .node-map-view__hover-card[data-horizontal="left"][data-vertical="above"] {
-  transform: translate3d(var(--node-map-hover-x, 0), var(--node-map-hover-y, 0), 0) translate(calc(-100% - 12px), calc(-100% - 12px));
+  transform: translate3d(var(--node-map-hover-x, 0px), var(--node-map-hover-y, 0px), 0) translate(calc(-100% - 12px), calc(-100% - 12px));
 }
 
 .node-map-view__hover-header {
