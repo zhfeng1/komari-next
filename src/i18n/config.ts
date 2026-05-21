@@ -101,9 +101,10 @@ export function detectClientLanguage(): string {
   return (
     normalizeLanguage(queryLanguage) ||
     normalizeLanguage(managedOverrideLanguage) ||
+    // "auto" should follow the browser, not i18next's previous fallback cache.
+    normalizeLanguage(navigatorLanguage) ||
     normalizeLanguage(localStorageLanguage) ||
     normalizeLanguage(cookieLanguage) ||
-    normalizeLanguage(navigatorLanguage) ||
     "en"
   );
 }
@@ -122,7 +123,8 @@ i18next
     },
     detection: {
       order: ["querystring", "localStorage", "cookie", "navigator", "htmlTag"],
-      caches: ["localStorage", "cookie"],
+      // ThemeContext persists explicit local choices in komari-language.
+      caches: [],
     },
   });
 
