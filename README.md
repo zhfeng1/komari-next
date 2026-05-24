@@ -5,7 +5,7 @@ It is built with **Next.js**, **TypeScript**, **Tailwind CSS** and **Shadcn UI**
 
 [中文](https://github.com/tonyliuzj/komari-next/blob/main/README-CN.md)
 
-[Demo](https://probes.top)
+[Demo](https://komari.probe.name)
 
 [Download theme file](https://github.com/tonyliuzj/komari-next/releases/latest/download/dist-release.zip)
 
