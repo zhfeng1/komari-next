@@ -98,9 +98,9 @@ export function usePingStats(uuid: string, hours: number = 24): PingStats {
   useEffect(() => {
     if (!uuid) return;
 
-    const controller = new AbortController();
+    let cancelled = false;
 
-    (async () => {
+    const fetchStats = async () => {
       try {
         type RpcResp = {
           count: number;
@@ -118,6 +118,8 @@ export function usePingStats(uuid: string, hours: number = 24): PingStats {
 
         const records = result?.records || [];
         const tasks = result?.tasks || [];
+
+        if (cancelled) return;
 
         if (records.length === 0 || tasks.length === 0) {
           setStats(createEmptyStats());
@@ -153,11 +155,19 @@ export function usePingStats(uuid: string, hours: number = 24): PingStats {
           hasData: true,
         });
       } catch (err) {
-        setStats(createEmptyStats());
+        if (!cancelled) {
+          setStats(createEmptyStats());
+        }
       }
-    })();
+    };
 
-    return () => controller.abort();
+    void fetchStats();
+    const interval = window.setInterval(fetchStats, 2000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
   }, [uuid, hours, call]);
 
   return stats;

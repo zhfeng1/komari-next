@@ -135,8 +135,9 @@ const PingChart = ({ uuid }: { uuid: string }) => {
     }
     setLoading(true);
     setError(null);
-    const controller = new AbortController();
-    (async () => {
+    let cancelled = false;
+
+    const fetchRecords = async () => {
       try {
         type RpcResp = {
           count: number;
@@ -153,16 +154,27 @@ const PingChart = ({ uuid }: { uuid: string }) => {
         records.sort(
           (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
         );
+        if (cancelled) return;
         setRemoteData(records);
         setTasks(result?.tasks || []);
+        setError(null);
         setLoading(false);
       } catch (err: any) {
-        setError(err?.message || "Error");
-        setLoading(false);
+        if (!cancelled) {
+          setError(err?.message || "Error");
+          setLoading(false);
+        }
       }
-    })();
-    return () => controller.abort();
-  }, [hours, uuid]);
+    };
+
+    void fetchRecords();
+    const interval = window.setInterval(fetchRecords, 2000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [hours, uuid, call]);
 
   const midData = useMemo(() => {
     const data = remoteData || [];
