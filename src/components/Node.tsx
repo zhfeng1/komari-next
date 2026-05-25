@@ -223,12 +223,12 @@ interface NodeProps {
   basic: NodeBasicInfo;
   live: Record | undefined;
   online: boolean;
+  pingStatsEnabled?: boolean;
 }
 
-const Node = ({ basic, live, online }: NodeProps) => {
+const Node = ({ basic, live, online, pingStatsEnabled = false }: NodeProps) => {
   const [t] = useTranslation();
   const { themeConfig } = useTheme();
-  const [pingStatsEnabled, setPingStatsEnabled] = React.useState(false);
   const pingStats = usePingStats(basic.uuid, 24, pingStatsEnabled);
 
   const defaultLive = {
@@ -300,8 +300,6 @@ const Node = ({ basic, live, online }: NodeProps) => {
     <Card
       id={basic.uuid}
       className={cardStyles[themeConfig.cardLayout] || cardStyles.classic}
-      onMouseEnter={() => setPingStatsEnabled(true)}
-      onFocusCapture={() => setPingStatsEnabled(true)}
     >
       {/* Header: Identity & Status */}
       <CardHeader className={headerStyles[themeConfig.cardLayout] || headerStyles.classic}>
@@ -489,43 +487,192 @@ type NodeGridProps = {
   liveData: LiveData;
 };
 
+const NODE_GRID_MIN_COLUMN_WIDTH = 320;
+const NODE_GRID_GAP = 24;
+const PING_STATS_ROW_LOAD_DELAY_MS = 400;
+const PING_STATS_ROW_ROOT_MARGIN = "360px 0px";
+
 export const NodeGrid = ({ nodes, liveData }: NodeGridProps) => {
-  // Ensure liveData is valid
-  const onlineNodes = liveData && liveData.online ? liveData.online : [];
+  const gridRef = React.useRef<HTMLDivElement | null>(null);
+  const [columns, setColumns] = React.useState(1);
+  const [pingStatsEnabledNodes, setPingStatsEnabledNodes] = React.useState<Set<string>>(
+    () => new Set()
+  );
+  const pingStatsEnabledNodesRef = React.useRef(pingStatsEnabledNodes);
+  const queuedRowsRef = React.useRef<string[][]>([]);
+  const queuedRowKeysRef = React.useRef<Set<string>>(new Set());
+  const rowLoadTimerRef = React.useRef<number | null>(null);
+  const processNextRowRef = React.useRef<() => void>(() => {});
 
-  // Sort nodes: Online first, then by weight
-  const sortedNodes = [...nodes].sort((a, b) => {
-    const aOnline = onlineNodes.includes(a.uuid);
-    const bOnline = onlineNodes.includes(b.uuid);
+  React.useEffect(() => {
+    pingStatsEnabledNodesRef.current = pingStatsEnabledNodes;
+  }, [pingStatsEnabledNodes]);
 
-    // If one is online and the other is offline, online comes first
-    if (aOnline !== bOnline) {
-      return aOnline ? -1 : 1;
+  React.useEffect(() => {
+    processNextRowRef.current = () => {
+      if (rowLoadTimerRef.current !== null) return;
+
+      const rowUuids = queuedRowsRef.current.shift();
+      if (!rowUuids) return;
+
+      const rowKey = rowUuids.join("|");
+      queuedRowKeysRef.current.delete(rowKey);
+      const pendingUuids = rowUuids.filter(
+        (uuid) => !pingStatsEnabledNodesRef.current.has(uuid)
+      );
+
+      if (pendingUuids.length > 0) {
+        setPingStatsEnabledNodes((previous) => {
+          const next = new Set(previous);
+          pendingUuids.forEach((uuid) => next.add(uuid));
+          pingStatsEnabledNodesRef.current = next;
+          return next;
+        });
+      }
+
+      rowLoadTimerRef.current = window.setTimeout(() => {
+        rowLoadTimerRef.current = null;
+        processNextRowRef.current();
+      }, PING_STATS_ROW_LOAD_DELAY_MS);
+    };
+
+    return () => {
+      if (rowLoadTimerRef.current !== null) {
+        window.clearTimeout(rowLoadTimerRef.current);
+        rowLoadTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const enqueuePingStatsRow = React.useCallback((rowUuids: string[]) => {
+    const pendingUuids = rowUuids.filter(
+      (uuid) => !pingStatsEnabledNodesRef.current.has(uuid)
+    );
+    if (pendingUuids.length === 0) return;
+
+    const rowKey = pendingUuids.join("|");
+    if (queuedRowKeysRef.current.has(rowKey)) return;
+
+    queuedRowKeysRef.current.add(rowKey);
+    queuedRowsRef.current.push(pendingUuids);
+    processNextRowRef.current();
+  }, []);
+
+  React.useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    const updateColumns = () => {
+      const computedStyle = window.getComputedStyle(grid);
+      const columnGap = Number.parseFloat(computedStyle.columnGap) || NODE_GRID_GAP;
+      const nextColumns = Math.max(
+        1,
+        Math.floor((grid.clientWidth + columnGap) / (NODE_GRID_MIN_COLUMN_WIDTH + columnGap))
+      );
+      setColumns((previous) => (previous === nextColumns ? previous : nextColumns));
+    };
+
+    updateColumns();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateColumns);
+      return () => window.removeEventListener("resize", updateColumns);
     }
 
-    // Otherwise sort by weight (ascending - though typical logic is often descending for weight, keeping original logic here: a.weight - b.weight)
-    return a.weight - b.weight;
-  });
+    const resizeObserver = new ResizeObserver(updateColumns);
+    resizeObserver.observe(grid);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  const onlineNodes = React.useMemo(() => liveData?.online ?? [], [liveData?.online]);
+
+  const sortedNodes = React.useMemo(() => {
+    return [...nodes].sort((a, b) => {
+      const aOnline = onlineNodes.includes(a.uuid);
+      const bOnline = onlineNodes.includes(b.uuid);
+
+      if (aOnline !== bOnline) {
+        return aOnline ? -1 : 1;
+      }
+
+      return a.weight - b.weight;
+    });
+  }, [nodes, onlineNodes]);
+
+  const rowUuidsByIndex = React.useMemo(() => {
+    const rows: string[][] = [];
+    sortedNodes.forEach((node, index) => {
+      const rowIndex = Math.floor(index / columns);
+      if (!rows[rowIndex]) rows[rowIndex] = [];
+      rows[rowIndex].push(node.uuid);
+    });
+    return rows;
+  }, [sortedNodes, columns]);
+
+  React.useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    const gridItems = Array.from(
+      grid.querySelectorAll<HTMLElement>("[data-node-grid-item='true']")
+    );
+
+    if (typeof IntersectionObserver === "undefined") {
+      enqueuePingStatsRow(rowUuidsByIndex[0] || []);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+
+          const rowIndex = Number((entry.target as HTMLElement).dataset.rowIndex);
+          if (!Number.isFinite(rowIndex)) return;
+          enqueuePingStatsRow(rowUuidsByIndex[rowIndex] || []);
+        });
+      },
+      {
+        root: null,
+        rootMargin: PING_STATS_ROW_ROOT_MARGIN,
+        threshold: 0.01,
+      }
+    );
+
+    gridItems.forEach((item) => observer.observe(item));
+
+    return () => observer.disconnect();
+  }, [rowUuidsByIndex, enqueuePingStatsRow]);
 
   return (
     <div
+      ref={gridRef}
       className="grid gap-6 py-4 box-border w-full"
       style={{
         gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
       }}
     >
-      {sortedNodes.map((node) => {
+      {sortedNodes.map((node, index) => {
         const isOnline = onlineNodes.includes(node.uuid);
         const nodeData =
           liveData && liveData.data ? liveData.data[node.uuid] : undefined;
+        const rowIndex = Math.floor(index / columns);
 
         return (
-          <Node
+          <div
             key={node.uuid}
-            basic={node}
-            live={nodeData}
-            online={isOnline}
-          />
+            data-node-grid-item="true"
+            data-row-index={rowIndex}
+            className="min-w-0"
+          >
+            <Node
+              basic={node}
+              live={nodeData}
+              online={isOnline}
+              pingStatsEnabled={pingStatsEnabledNodes.has(node.uuid)}
+            />
+          </div>
         );
       })}
     </div>

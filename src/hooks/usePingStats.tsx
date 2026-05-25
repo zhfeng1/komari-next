@@ -74,7 +74,6 @@ export function usePingStats(uuid: string, hours: number = 24, enabled: boolean 
 
   useEffect(() => {
     if (!enabled) {
-      setStats(createEmptyStats());
       return;
     }
 

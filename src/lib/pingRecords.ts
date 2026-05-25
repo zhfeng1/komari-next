@@ -43,7 +43,10 @@ type PingRecordsCacheEntry = {
 };
 
 const PING_RECORDS_CACHE_TTL_MS = 60_000;
+const MAX_CONCURRENT_PING_RECORD_REQUESTS = 2;
 const pingRecordsCache = new Map<string, PingRecordsCacheEntry>();
+let activePingRecordRequests = 0;
+const pingRecordRequestQueue: Array<() => void> = [];
 
 const emptyPingRecordsResponse: PingRecordsResponse = {
   count: 0,
@@ -77,6 +80,27 @@ function normalizeResponse(result: Partial<PingRecordsResponse> | null | undefin
   };
 }
 
+function runWithPingRecordRequestLimit<T>(task: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const run = () => {
+      activePingRecordRequests++;
+      task()
+        .then(resolve, reject)
+        .finally(() => {
+          activePingRecordRequests = Math.max(0, activePingRecordRequests - 1);
+          pingRecordRequestQueue.shift()?.();
+        });
+    };
+
+    if (activePingRecordRequests < MAX_CONCURRENT_PING_RECORD_REQUESTS) {
+      run();
+      return;
+    }
+
+    pingRecordRequestQueue.push(run);
+  });
+}
+
 export async function fetchPingRecords(
   call: RPC2Call,
   uuid: string | null | undefined,
@@ -98,11 +122,13 @@ export async function fetchPingRecords(
     if (cached.promise) return cached.promise;
   }
 
-  const promise = call<any, PingRecordsResponse>("common:getRecords", {
-    uuid: normalizedUuid,
-    type: "ping",
-    hours: normalizedHours,
-  })
+  const promise = runWithPingRecordRequestLimit(() =>
+    call<any, PingRecordsResponse>("common:getRecords", {
+      uuid: normalizedUuid,
+      type: "ping",
+      hours: normalizedHours,
+    })
+  )
     .then((result) => {
       const data = normalizeResponse(result);
       pingRecordsCache.set(cacheKey, {
