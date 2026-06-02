@@ -12,14 +12,28 @@ type DetailsGridProps = {
   align?: "start" | "center" | "end";
 };
 
-const StatCard = ({ title, value, subValue, className }: { title: string, value: React.ReactNode, subValue?: React.ReactNode, className?: string }) => (
-  <Card className={`shadow-sm ${className}`}>
+const StatCard = ({
+  title,
+  value,
+  subValue,
+  className,
+  valueClassName = "text-lg font-bold break-all",
+  subValueClassName = "text-xs text-muted-foreground break-all",
+}: {
+  title: string;
+  value: React.ReactNode;
+  subValue?: React.ReactNode;
+  className?: string;
+  valueClassName?: string;
+  subValueClassName?: string;
+}) => (
+  <Card className={`shadow-sm min-w-0 ${className ?? ""}`}>
     <CardHeader className="p-4 pb-2">
       <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
     </CardHeader>
-    <CardContent className="p-4 pt-0">
-      <div className="text-lg font-bold break-all">{value}</div>
-      {subValue && <div className="text-xs text-muted-foreground break-all">{subValue}</div>}
+    <CardContent className="p-4 pt-0 min-w-0">
+      <div className={valueClassName}>{value}</div>
+      {subValue && <div className={subValueClassName}>{subValue}</div>}
     </CardContent>
   </Card>
 );
@@ -92,6 +106,7 @@ export const DetailsGrid = ({ uuid, gap, box, align }: DetailsGridProps) => {
       <StatCard
         title={t("nodeCard.uptime")}
         value={data?.uptime ? formatUptime(data?.uptime, t) : "-"}
+        valueClassName="text-sm font-bold truncate"
       />
 
       {/* Last Updated */}
