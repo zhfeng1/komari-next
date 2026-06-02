@@ -151,10 +151,7 @@ function PingHistoryStrip({
         <span className="truncate text-muted-foreground">{label}</span>
         <span className="shrink-0 font-mono font-semibold text-foreground/80">{value}</span>
       </div>
-      <div
-        className="grid h-5 gap-0.5"
-        style={{ gridTemplateColumns: `repeat(${Math.max(points.length, 1)}, minmax(0, 1fr))` }}
-      >
+      <div className="flex h-5 gap-0.5">
         {points.map((point, index) => {
           const metricValue = point[metric];
           const tone =
@@ -176,7 +173,7 @@ function PingHistoryStrip({
           return (
             <span
               key={`${point.time}-${index}`}
-              className={`min-w-0 rounded-[2px] ${blockClassName}`}
+              className={`flex-1 min-w-0 rounded-[2px] ${blockClassName}`}
               title={`${formatHistoryTime(point.time)} ${titleValue}`}
             />
           );
