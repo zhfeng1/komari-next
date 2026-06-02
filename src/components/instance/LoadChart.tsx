@@ -326,7 +326,7 @@ const LoadChart = ({ uuid, data = [] }: LoadChartProps) => {
               />
               <Area
                 dataKey="cpu"
-                animationDuration={500}
+                animationDuration={0}
                 stroke={primaryColor}
                 fill={primaryColor}
                 opacity={0.8}
@@ -431,7 +431,7 @@ const LoadChart = ({ uuid, data = [] }: LoadChartProps) => {
               />
               <Area
                 dataKey="ram"
-                animationDuration={500}
+                animationDuration={0}
                 stroke={primaryColor}
                 fill={primaryColor}
                 opacity={0.8}
@@ -439,7 +439,7 @@ const LoadChart = ({ uuid, data = [] }: LoadChartProps) => {
               />
               <Area
                 dataKey="swap"
-                animationDuration={500}
+                animationDuration={0}
                 stroke={secondaryColor}
                 fill={secondaryColor}
                 opacity={0.8}
@@ -500,7 +500,7 @@ const LoadChart = ({ uuid, data = [] }: LoadChartProps) => {
               />
               <Area
                 dataKey="disk"
-                animationDuration={500}
+                animationDuration={0}
                 stroke={primaryColor}
                 fill={primaryColor}
                 opacity={0.8}
@@ -569,7 +569,7 @@ const LoadChart = ({ uuid, data = [] }: LoadChartProps) => {
               />
               <Line
                 dataKey="net_in"
-                animationDuration={500}
+                animationDuration={0}
                 stroke={primaryColor}
                 fill={primaryColor}
                 opacity={0.8}
@@ -577,7 +577,7 @@ const LoadChart = ({ uuid, data = [] }: LoadChartProps) => {
               />
               <Line
                 dataKey="net_out"
-                animationDuration={500}
+                animationDuration={0}
                 stroke={colors[3]}
                 fill={colors[3]}
                 opacity={0.8}
@@ -639,7 +639,7 @@ const LoadChart = ({ uuid, data = [] }: LoadChartProps) => {
               />
               <Line
                 dataKey="connections"
-                animationDuration={500}
+                animationDuration={0}
                 stroke={primaryColor}
                 fill={primaryColor}
                 opacity={0.8}
@@ -647,7 +647,7 @@ const LoadChart = ({ uuid, data = [] }: LoadChartProps) => {
               />
               <Line
                 dataKey="connections_udp"
-                animationDuration={500}
+                animationDuration={0}
                 stroke={colors[3]}
                 fill={colors[3]}
                 opacity={0.8}
@@ -700,7 +700,7 @@ const LoadChart = ({ uuid, data = [] }: LoadChartProps) => {
               />
               <Line
                 dataKey="process"
-                animationDuration={500}
+                animationDuration={0}
                 stroke={primaryColor}
                 fill={primaryColor}
                 opacity={0.8}
@@ -830,7 +830,7 @@ const LoadChart = ({ uuid, data = [] }: LoadChartProps) => {
                   />
                   <Area
                     dataKey="gpu_usage"
-                    animationDuration={500}
+                    animationDuration={0}
                     stroke={primaryColor}
                     fill={primaryColor}
                     opacity={0.8}
@@ -838,7 +838,7 @@ const LoadChart = ({ uuid, data = [] }: LoadChartProps) => {
                   />
                   <Area
                     dataKey="gpu_memory"
-                    animationDuration={500}
+                    animationDuration={0}
                     stroke={secondaryColor}
                     fill={secondaryColor}
                     opacity={0.8}
@@ -846,7 +846,7 @@ const LoadChart = ({ uuid, data = [] }: LoadChartProps) => {
                   />
                   <Area
                     dataKey="gpu_temp"
-                    animationDuration={500}
+                    animationDuration={0}
                     stroke={colors[2]}
                     fill={colors[2]}
                     opacity={0.6}
