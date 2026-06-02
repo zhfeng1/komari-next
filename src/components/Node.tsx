@@ -165,7 +165,7 @@ function PingHistoryStrip({
                 : getLossTone(metricValue);
           const blockClassName = tone
             ? qualityToneStyles[tone].bar
-            : "bg-muted-foreground/18";
+            : "";
           const titleValue =
             metricValue === null
               ? "No data"
