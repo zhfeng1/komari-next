@@ -207,20 +207,22 @@ function PingQualityBars({ pingStats, t }: { pingStats: PingStats; t: TFunction 
           {statusText}
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <PingHistoryStrip
-          label={t("nodeCard.latency", { defaultValue: "Latency" })}
-          value={latencyValue}
-          points={historyPoints}
-          metric="latency"
-        />
-        <PingHistoryStrip
-          label={t("chart.lossRate", { defaultValue: "Loss" })}
-          value={lossValue}
-          points={historyPoints}
-          metric="loss"
-        />
-      </div>
+      {(!pingStats.isLoaded || pingStats.hasData) && (
+        <div className="grid grid-cols-2 gap-2">
+          <PingHistoryStrip
+            label={t("nodeCard.latency", { defaultValue: "Latency" })}
+            value={latencyValue}
+            points={historyPoints}
+            metric="latency"
+          />
+          <PingHistoryStrip
+            label={t("chart.lossRate", { defaultValue: "Loss" })}
+            value={lossValue}
+            points={historyPoints}
+            metric="loss"
+          />
+        </div>
+      )}
     </div>
   );
 }
