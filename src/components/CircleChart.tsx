@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { RadialBarChart, RadialBar, PolarAngleAxis, ResponsiveContainer } from "recharts";
 import { useTheme } from "@/contexts/ThemeContext";
 
 interface CircleChartProps {
@@ -55,46 +54,56 @@ export default function CircleChart({
 
   const fillColor = getThemeColor();
 
-  const data = [
-    {
-      name: label,
-      value: chartValue,
-      fill: fillColor,
-    },
-  ];
+  const renderSVG = (strokeWidth: number) => {
+    // 50 is center (cx, cy), so max radius is 50. We subtract half of strokeWidth to stay inside.
+    const radius = 50 - strokeWidth / 2;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference - (chartValue / 100) * circumference;
+    
+    // Fallback animation duration if needed
+    const duration = animationDuration > 0 ? animationDuration : 0;
+    const transitionStyle = duration > 0 
+      ? { transition: `stroke-dashoffset ${duration}ms ease-out, stroke ${duration}ms ease-out` } 
+      : {};
+
+    return (
+      <svg 
+        viewBox="0 0 100 100" 
+        className="w-full h-full transform -rotate-90 overflow-visible"
+      >
+        {/* Background Track */}
+        <circle
+          cx="50"
+          cy="50"
+          r={radius}
+          fill="transparent"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          className="text-muted/20"
+        />
+        {/* Progress Arc */}
+        <circle
+          cx="50"
+          cy="50"
+          r={radius}
+          fill="transparent"
+          stroke={fillColor}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          style={transitionStyle}
+        />
+      </svg>
+    );
+  };
 
   // Compact mode for table views
   if (compact) {
     return (
       <div className="flex items-center justify-center">
         <div className="h-[40px] w-[40px] relative">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadialBarChart
-              cx="50%"
-              cy="50%"
-              innerRadius="65%"
-              outerRadius="95%"
-              barSize={7}
-              data={data}
-              startAngle={90}
-              endAngle={-270}
-            >
-              <PolarAngleAxis
-                type="number"
-                domain={[0, 100]}
-                angleAxisId={0}
-                tick={false}
-              />
-              <RadialBar
-                background={{ fill: 'rgba(128, 128, 128, 0.1)' }}
-                dataKey="value"
-                cornerRadius={10}
-                animationDuration={animationDuration}
-                animationEasing="ease-out"
-              />
-            </RadialBarChart>
-          </ResponsiveContainer>
-
+          {renderSVG(12)}
           {/* Centered Percentage for compact mode */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <span className="text-[11px] font-bold text-foreground">
@@ -110,33 +119,7 @@ export default function CircleChart({
   return (
     <div className="flex flex-col items-center justify-center p-2">
       <div className="h-[90px] w-[90px] relative">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadialBarChart
-            cx="50%"
-            cy="50%"
-            innerRadius="70%"
-            outerRadius="95%"
-            barSize={8}
-            data={data}
-            startAngle={90}
-            endAngle={-270}
-          >
-            <PolarAngleAxis
-              type="number"
-              domain={[0, 100]}
-              angleAxisId={0}
-              tick={false}
-            />
-            <RadialBar
-              background={{ fill: 'rgba(128, 128, 128, 0.1)' }}
-              dataKey="value"
-              cornerRadius={10}
-              animationDuration={animationDuration}
-              animationEasing="ease-out"
-            />
-          </RadialBarChart>
-        </ResponsiveContainer>
-
+        {renderSVG(10)}
         {/* Centered Percentage */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="text-base font-bold text-foreground drop-shadow-sm tracking-tight">

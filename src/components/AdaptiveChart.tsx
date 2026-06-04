@@ -180,13 +180,13 @@ export default function AdaptiveChart({ value, label, subLabel, color, compact =
   // Default: Circle Design
   return (
     <CircleChart
-      value={visualValue}
+      value={chartValue}
       label={label}
       subLabel={subLabel}
       color={color}
       compact={compact}
-      displayValue={chartValue}
-      animationDuration={animate ? 0 : 800}
+      displayValue={visualValue}
+      animationDuration={animate ? 800 : 0}
     />
   );
 }
