@@ -11,7 +11,7 @@ import {
   ChartTooltipContent,
   ChartLegend,
 } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceArea } from "recharts";
 import { cutPeakValues, interpolateNullsLinear } from "@/utils/RecordHelper";
 import Tips from "@/components/ui/tips";
 import { Eye, EyeOff, MoreHorizontal } from "lucide-react";
@@ -20,6 +20,7 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { fetchPingRecords, PING_RECORDS_AUTO_REFRESH_MS, type PingRecord, type PingTaskInfo } from "@/lib/pingRecords";
+import { preparePingChartTimeline, type PingChartPoint } from "@/lib/pingChartTimeline";
 
 const colors = [
   "#F38181",
@@ -180,7 +181,7 @@ const PingChart = ({ uuid }: { uuid: string }) => {
       6000,
       Math.max(800, Math.floor(fallbackIntervalSec * 1000 * 0.25))
     );
-    const grouped: Record<number, any> = {};
+    const grouped: Record<number, PingChartPoint> = {};
     const anchors: number[] = [];
     for (const rec of data) {
       const ts = new Date(rec.time).getTime();
@@ -193,7 +194,7 @@ const PingChart = ({ uuid }: { uuid: string }) => {
       }
       const use = anchor ?? ts;
       if (!grouped[use]) {
-        grouped[use] = { time: new Date(use).toISOString() };
+        grouped[use] = { time: new Date(use).toISOString(), timeMs: use };
         if (anchor === null) anchors.push(use);
       }
       grouped[use][rec.task_id] = rec.value < 0 ? null : rec.value;
@@ -203,54 +204,42 @@ const PingChart = ({ uuid }: { uuid: string }) => {
         new Date(a.time).getTime() - new Date(b.time).getTime()
     );
 
-    const lastTs = new Date(
-      (merged as any[])[(merged as any[]).length - 1].time
-    ).getTime();
-    const fromTs = lastTs - hours * 3600_000;
-    let startIdx = 0;
-    for (let i = 0; i < (merged as any[]).length; i++) {
-      const ts = new Date((merged as any[])[i].time).getTime();
-      if (ts >= fromTs) {
-        startIdx = Math.max(0, i - 1);
-        break;
-      }
-    }
-    const clipped = (merged as any[]).slice(startIdx);
-    return clipped;
+    return merged as PingChartPoint[];
   }, [remoteData, tasks, hours]);
 
-  const chartData = useMemo(() => {
+  const chartTimeline = useMemo(() => {
+    const keys = tasks.map((t) => String(t.id));
     let full = midData;
     if (cutPeak && tasks.length > 0) {
-      const taskKeys = tasks.map((task) => String(task.id));
-      full = cutPeakValues(midData, taskKeys);
+      full = cutPeakValues(midData, keys);
     }
     if (tasks.length > 0 && full.length > 0) {
-      const keys = tasks.map((t) => String(t.id));
       full = interpolateNullsLinear(full, keys, {
         maxGapMultiplier: 6,
         minCapMs: 2 * 60_000,
         maxCapMs: 30 * 60_000,
       });
     }
-    return full;
-  }, [midData, cutPeak, tasks]);
+    return preparePingChartTimeline(full as PingChartPoint[], keys, tasks, hours);
+  }, [midData, cutPeak, tasks, hours]);
 
-  const timeFormatter = (value: any, index: number) => {
-    if (!chartData.length) return "";
-    if (index === 0 || index === chartData.length - 1) {
-      if (hours < 24) {
-        return new Date(value).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-      }
-      return new Date(value).toLocaleDateString([], {
-        month: "2-digit",
-        day: "2-digit",
+  const chartData = chartTimeline.chartData;
+  const noDataRegions = chartTimeline.noDataRegions;
+  const xDomain = chartTimeline.xDomain;
+
+  const timeFormatter = (value: any) => {
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return "";
+    if (hours < 24) {
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
       });
     }
-    return "";
+    return date.toLocaleDateString([], {
+      month: "2-digit",
+      day: "2-digit",
+    });
   };
   const lableFormatter = (value: any) => {
     const date = new Date(value);
@@ -526,11 +515,24 @@ const PingChart = ({ uuid }: { uuid: string }) => {
               accessibilityLayer
               margin={{ top: 0, right: 16, bottom: 0, left: 16 }}>
               <CartesianGrid vertical={false} />
+              {noDataRegions.map((region) => (
+                <ReferenceArea
+                  key={`${region.startMs}-${region.endMs}`}
+                  x1={region.startMs}
+                  x2={region.endMs}
+                  fill="var(--muted-foreground)"
+                  fillOpacity={0.12}
+                  strokeOpacity={0}
+                  isFront={false}
+                />
+              ))}
               <XAxis
-                dataKey="time"
+                dataKey="timeMs"
+                type="number"
+                scale="time"
+                domain={xDomain}
                 tickLine={false}
                 tickFormatter={timeFormatter}
-                interval="preserveStartEnd"
                 minTickGap={30}
                 allowDuplicatedCategory={false}
               />

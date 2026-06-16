@@ -8,12 +8,13 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceArea } from "recharts";
 import { useTranslation } from "react-i18next";
 import { cutPeakValues, interpolateNullsLinear } from "@/utils/RecordHelper";
 import Tips from "./ui/tips";
 import { useRPC2Call } from "@/contexts/RPC2Context";
 import { fetchPingRecords, PING_RECORDS_AUTO_REFRESH_MS, type PingRecord, type PingTaskInfo } from "@/lib/pingRecords";
+import { preparePingChartTimeline, type PingChartPoint } from "@/lib/pingChartTimeline";
 // 移除旧 REST 类型，改用 RPC2 返回结构
 
 //const MAX_POINTS = 1000;
@@ -91,11 +92,12 @@ const MiniPingChart = ({
     };
   }, [uuid, hours, call]);
 
-  const chartData = useMemo(() => {
+  const chartTimeline = useMemo(() => {
     // 思路：仅保留真实采样时间点（各任务原始时间点的并集），
     // 不再用最小间隔对整段时间做补点，否则长间隔任务会被大量 null 分割成若干段。
     const data = remoteData || [];
-    if (!data.length) return [];
+    const keys = tasks.map((t) => String(t.id));
+    if (!data.length) return preparePingChartTimeline([], keys, tasks, hours);
 
     // 动态匹配容差：取各任务最小 interval * 0.4（秒）转换为 ms，范围 [800ms, 1500ms]
     const validIntervals = tasks
@@ -109,7 +111,7 @@ const MiniPingChart = ({
       Math.max(800, (minTaskInterval * 1000 * 0.4) | 0)
     );
 
-    const grouped: Record<string, any> = {}; // key: anchor timestamp(ms)
+    const grouped: Record<string, PingChartPoint> = {}; // key: anchor timestamp(ms)
     const anchors: number[] = [];
 
     for (const rec of data) {
@@ -124,7 +126,7 @@ const MiniPingChart = ({
       }
       const use = anchor ?? ts;
       if (!grouped[use]) {
-        grouped[use] = { time: new Date(use).toISOString() };
+        grouped[use] = { time: new Date(use).toISOString(), timeMs: use };
         if (anchor === null) anchors.push(use);
       }
       grouped[use][rec.task_id] = rec.value < 0 ? null : rec.value; // 负值隐藏
@@ -132,32 +134,31 @@ const MiniPingChart = ({
 
     let rows = Object.values(grouped).sort(
       (a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime()
-    );
-
+    ) as PingChartPoint[];
     if (cutPeak && tasks.length > 0) {
-      const taskKeys = tasks.map((t) => String(t.id));
-      rows = cutPeakValues(rows, taskKeys);
+      rows = cutPeakValues(rows, keys);
     }
 
     // 真实感插值（数据驱动）：
     // 每条线以“中位采样间隔 * 倍数(默认6)”作为最大插值跨度，并钳制在 [2min, 30min]。
     if (tasks.length > 0 && rows.length > 0) {
-      const keys = tasks.map((t) => String(t.id));
       rows = interpolateNullsLinear(rows as any[], keys, { maxGapMultiplier: 6, minCapMs: 2 * 60_000, maxCapMs: 30 * 60_000 }) as any[];
     }
 
-    return rows;
-  }, [remoteData, cutPeak, tasks]);
+    return preparePingChartTimeline(rows, keys, tasks, hours);
+  }, [remoteData, cutPeak, tasks, hours]);
 
-  const timeFormatter = (value: any, index: number) => {
-    if (!chartData.length) return "";
-    if (index === 0 || index === chartData.length - 1) {
-      return new Date(value).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    }
-    return "";
+  const chartData = chartTimeline.chartData;
+  const noDataRegions = chartTimeline.noDataRegions;
+  const xDomain = chartTimeline.xDomain;
+
+  const timeFormatter = (value: any) => {
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return "";
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const chartConfig = useMemo(() => {
@@ -262,12 +263,25 @@ const MiniPingChart = ({
               margin={{ top: 10, right: 20, bottom: 10, left: 10 }}
             >
               <CartesianGrid vertical={false} />
+              {noDataRegions.map((region) => (
+                <ReferenceArea
+                  key={`${region.startMs}-${region.endMs}`}
+                  x1={region.startMs}
+                  x2={region.endMs}
+                  fill="var(--muted-foreground)"
+                  fillOpacity={0.12}
+                  strokeOpacity={0}
+                  isFront={false}
+                />
+              ))}
               <XAxis
-                dataKey="time"
+                dataKey="timeMs"
+                type="number"
+                scale="time"
+                domain={xDomain}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={timeFormatter}
-                interval="preserveStartEnd" // Preserve start and end ticks
                 minTickGap={30} // Minimum gap between ticks to prevent overlap
               />
               <YAxis
@@ -292,33 +306,20 @@ const MiniPingChart = ({
                   <ChartLegendContent className="flex-wrap justify-start gap-x-3 gap-y-2 text-xs" />
                 }
               />
-              {(() => {
-                const minInterval = Math.min(
-                  ...tasks
-                    .map((t) => t.interval || Infinity)
-                    .filter((v) => v !== undefined)
-                );
-                return tasks.map((task, idx) => {
-                  const interval = task.interval || minInterval;
-                  // 对于 interval 大于最小 interval 的任务，开启 connectNulls，
-                  // 这样它们不会因为其他任务的额外时间点被打断。
-                  const connect = interval > minInterval;
-                  return (
-                    <Line
-                      key={task.id}
-                      dataKey={String(task.id)}
-                      name={task.name}
-                      stroke={colors[idx % colors.length]}
-                      dot={false}
-                      isAnimationActive={false}
-                      strokeWidth={2}
-                      connectNulls={connect}
-                      type={cutPeak ? "basisOpen" : "linear"}
-                      hide={!!hiddenLines[task.id]}
-                    />
-                  );
-                });
-              })()}
+              {tasks.map((task, idx) => (
+                <Line
+                  key={task.id}
+                  dataKey={String(task.id)}
+                  name={task.name}
+                  stroke={colors[idx % colors.length]}
+                  dot={false}
+                  isAnimationActive={false}
+                  strokeWidth={2}
+                  connectNulls={false}
+                  type={cutPeak ? "basisOpen" : "linear"}
+                  hide={!!hiddenLines[String(task.id)]}
+                />
+              ))}
             </LineChart>
           </ChartContainer>
         )
