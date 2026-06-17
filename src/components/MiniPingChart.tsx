@@ -175,14 +175,20 @@ const MiniPingChart = ({
   const CustomTooltip = useCallback(({ active, payload, label }: any) => {
     if (!active || !payload || !payload.length) return null;
 
-    const date = new Date(label);
-    const formattedDate = date.toLocaleString([], {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
+    const tooltipTime =
+      payload.find((entry: any) => Number.isFinite(entry?.payload?.timeMs))?.payload?.timeMs ??
+      payload.find((entry: any) => entry?.payload?.time)?.payload?.time ??
+      label;
+    const date = new Date(tooltipTime);
+    const formattedDate = Number.isFinite(date.getTime())
+      ? date.toLocaleString([], {
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+      : "";
 
     return (
       <div className="pointer-events-auto max-h-[min(60dvh,22rem)] min-w-[12rem] max-w-[min(22rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-lg border bg-background p-2 shadow-sm touch-pan-y">

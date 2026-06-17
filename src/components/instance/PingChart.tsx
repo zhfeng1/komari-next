@@ -241,8 +241,13 @@ const PingChart = ({ uuid }: { uuid: string }) => {
       day: "2-digit",
     });
   };
-  const lableFormatter = (value: any) => {
-    const date = new Date(value);
+  const lableFormatter = (value: any, payload?: any[]) => {
+    const tooltipTime =
+      payload?.find((entry) => Number.isFinite(entry?.payload?.timeMs))?.payload?.timeMs ??
+      payload?.find((entry) => entry?.payload?.time)?.payload?.time ??
+      value;
+    const date = new Date(tooltipTime);
+    if (!Number.isFinite(date.getTime())) return "";
     if (hours < 24) {
       return date.toLocaleTimeString([], {
         hour: "2-digit",
